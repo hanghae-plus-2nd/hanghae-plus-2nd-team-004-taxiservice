@@ -1,14 +1,13 @@
 package hanghae.four.taxiservice.acceptance.pay
 
 import hanghae.four.taxiservice.acceptance.AcceptanceTest
+import hanghae.four.taxiservice.acceptance.call.CallSteps
 import hanghae.four.taxiservice.acceptance.client.ClientSteps
 import hanghae.four.taxiservice.acceptance.driver.DriverSteps
 import hanghae.four.taxiservice.acceptance.taxi.TaxiSteps
 import hanghae.four.taxiservice.domain.pay.payinfo.PayInfo
 import hanghae.four.taxiservice.domain.taxi.Taxi
-import hanghae.four.taxiservice.domain.taxi.call.Call
 import hanghae.four.taxiservice.infrastructure.pay.payinfo.PayInfoRepository
-import hanghae.four.taxiservice.infrastructure.taxi.call.CallRepository
 import org.assertj.core.api.Assertions
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Disabled
@@ -20,13 +19,10 @@ import java.math.BigDecimal
 class PaymentAcceptanceTest : AcceptanceTest() {
 
     @Autowired
-    private lateinit var callRepository: CallRepository
-
-    @Autowired
     private lateinit var payInfoRepository: PayInfoRepository
 
     private var clientId: Long = 0
-    private lateinit var call: Call
+    private var callNumber: String = ""
 
     // 기사/사용자 등록 -> 택시등록 -> 결제 방법 등록 -> 택시 호출 -> 결제
     @BeforeEach
@@ -35,22 +31,24 @@ class PaymentAcceptanceTest : AcceptanceTest() {
         val driverId = driverResponse.jsonPath().getLong("driverId")
 
         val clientResponse = ClientSteps.`사용자 등록`()
-        clientId = clientResponse.jsonPath().getLong("driverId")
+        clientId = clientResponse.jsonPath().getLong("clientId")
 
-        val taxiResponse = TaxiSteps.`택시 등록`(Taxi.Type.NORMAL, requireNotNull(driverId), 1234)
+        val taxiResponse = TaxiSteps.`택시 등록`(Taxi.Type.NORMAL, driverId, 1234)
         val taxiId = taxiResponse.jsonPath().getLong("taxiId")
 
-        call = callRepository.save(
-            Call(userId = clientId, taxiId = taxiId, origin = "서울시 강남구", destination = "서울시 강북구")
-        )
+        TaxiSteps.`택시 WAITING 상태 변경`(taxiId)
+
+        val callResponse = CallSteps.`택시 호출`("서울시 강남구", "서울시 강남구", Taxi.Type.NORMAL, clientId)
+        callNumber = callResponse.jsonPath().getString("callNumber")
+
+        TaxiSteps.`택시 RUNNING 상태 변경`(taxiId)
     }
 
-    @Disabled
     @Test
     fun `택시 현금 결제하기`() {
         val response = PaymentSteps.`택시 요금 결제`(
-            requireNotNull(clientId),
-            requireNotNull(call.id),
+            clientId,
+            callNumber,
             null,
             BigDecimal(1000),
             PayInfo.Type.CASH
@@ -66,8 +64,8 @@ class PaymentAcceptanceTest : AcceptanceTest() {
         val payInfo = payInfoRepository.save(PayInfo(requireNotNull(clientId), PayInfo.Type.SAMSUNGCARD))
 
         val response = PaymentSteps.`택시 요금 결제`(
-            requireNotNull(clientId),
-            requireNotNull(call.id),
+            clientId,
+            callNumber,
             payInfo.id,
             BigDecimal(1000),
             PayInfo.Type.SAMSUNGCARD
@@ -83,8 +81,8 @@ class PaymentAcceptanceTest : AcceptanceTest() {
         val payInfo = payInfoRepository.save(PayInfo(requireNotNull(clientId), PayInfo.Type.NAVERPAY))
 
         val response = PaymentSteps.`택시 요금 결제`(
-            requireNotNull(clientId),
-            requireNotNull(call.id),
+            clientId,
+            callNumber,
             payInfo.id,
             BigDecimal(1000),
             PayInfo.Type.NAVERPAY

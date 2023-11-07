@@ -12,14 +12,14 @@ class PaymentSteps : AcceptanceTestSteps() {
     companion object {
         fun `택시 요금 결제`(
             clientId: Long,
-            callId: Long,
+            callNumber: String,
             payInfo: Long?,
             amount: BigDecimal,
             payType: PayInfo.Type,
         ): ExtractableResponse<Response> {
             val params: MutableMap<String, Any?> = mutableMapOf()
             params.put("clientId", clientId)
-            params.put("callId", callId)
+            params.put("callNumber", callNumber)
             params.put("payInfoId", payInfo)
             params.put("amount", amount)
             params.put("payType", payType)
