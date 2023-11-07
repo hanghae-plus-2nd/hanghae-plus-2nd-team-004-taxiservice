@@ -37,7 +37,7 @@ class PayInfo(
         ;
 
         fun cashCheck(): Boolean {
-            return this == PayInfo.Type.CASH
+            return this == CASH
         }
     }
 }
